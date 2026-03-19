@@ -207,24 +207,23 @@
 
 <script>
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null, isRecording = false, isPaused = false;
+  let recognition = null, isRecording = false, isPaused = false, isClearing = false;
   let finalTranscript = '', translatedTranscript = '';
   let translateTimer = null, lastTranslated = '';
 
-  // Instagram WebView algıla
   const ua = navigator.userAgent || '';
   if (/Instagram|FBAN|FBAV|FB_IAB/i.test(ua)) {
     document.getElementById('igWarning').style.display = 'block';
   }
 
-  // Dil etiketleri
   const srcNames = { 'tr-TR':'Türkçe','en-US':'İngilizce','de-DE':'Almanca','fr-FR':'Fransızca','es-ES':'İspanyolca','ar-SA':'Arapça','ru-RU':'Rusça','ja-JP':'Japonca' };
 
   function onLangChange() {
     const v = document.getElementById('langSelect').value;
     document.getElementById('srcLangLabel').textContent = srcNames[v] || v;
     isPaused = false;
-    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    isClearing = false;
+    stopRec();
     setTimeout(() => { initRec(); startRec(); }, 200);
   }
 
@@ -251,6 +250,10 @@
     else { lbl.textContent = '—'; lbl.style.color = '#003a15'; }
   }
 
+  function stopRec() {
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+  }
+
   async function checkPermission() {
     if (!SR) { setStatus('denied','desteklenmiyor','#ff3300','chrome veya edge kullanın','err'); return; }
     document.getElementById('micBtn').disabled = false;
@@ -266,13 +269,14 @@
   }
 
   function togglePause() {
+    if (isClearing) return;
     if (isPaused) {
       isPaused = false;
       initRec();
       startRec();
     } else if (isRecording) {
       isPaused = true;
-      try { recognition.stop(); } catch(e) {}
+      stopRec();
     }
   }
 
@@ -316,16 +320,20 @@
 
     recognition.onend = () => {
       isRecording = false;
-      if (isPaused) {
-        renderFinal();
-        setMicState('paused');
-        setStatus('paused','duraklatıldı','#ffaa00','devam etmek için mikrofona bas','muted');
-      } else {
-        setTimeout(() => {
+      if (isClearing || isPaused) {
+        if (isPaused) {
+          renderFinal();
+          setMicState('paused');
+          setStatus('paused','duraklatıldı','#ffaa00','devam etmek için mikrofona bas','muted');
+        }
+        return;
+      }
+      setTimeout(() => {
+        if (!isPaused && !isClearing) {
           initRec();
           startRec();
-        }, 250);
-      }
+        }
+      }, 250);
     };
   }
 
@@ -397,6 +405,8 @@
   function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   function clearAll() {
+    isClearing = true;
+    isPaused = false;
     finalTranscript = ''; translatedTranscript = ''; lastTranslated = '';
     clearTimeout(translateTimer);
     document.getElementById('output').innerHTML = '';
@@ -404,13 +414,12 @@
     document.getElementById('placeholder').style.display = 'block';
     document.getElementById('trPlaceholder').style.display = 'block';
     document.getElementById('wordCount').textContent = '0 kelime';
-    isPaused = true;
-    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    stopRec();
     setTimeout(() => {
-      isPaused = false;
+      isClearing = false;
       initRec();
       startRec();
-    }, 400);
+    }, 500);
   }
 
   function copyText() {
