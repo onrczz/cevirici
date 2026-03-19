@@ -207,7 +207,7 @@
 
 <script>
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null, isRecording = false, isPaused = false, isClearing = false;
+  let recognition = null, isRecording = false, isPaused = false, isClearing = false, isResuming = false;
   let finalTranscript = '', translatedTranscript = '';
   let translateTimer = null, lastTranslated = '';
 
@@ -272,6 +272,7 @@
     if (isClearing) return;
     if (isPaused) {
       isPaused = false;
+      isResuming = true;
       initRec();
       startRec();
     } else if (isRecording) {
@@ -320,12 +321,12 @@
 
     recognition.onend = () => {
       isRecording = false;
-      if (isClearing || isPaused) {
-        if (isPaused) {
-          renderFinal();
-          setMicState('paused');
-          setStatus('paused','duraklatıldı','#ffaa00','devam etmek için mikrofona bas','muted');
-        }
+      if (isClearing) return;
+      if (isResuming) { isResuming = false; return; }
+      if (isPaused) {
+        renderFinal();
+        setMicState('paused');
+        setStatus('paused','duraklatıldı','#ffaa00','devam etmek için mikrofona bas','muted');
         return;
       }
       setTimeout(() => {
