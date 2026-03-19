@@ -210,7 +210,6 @@
   let recognition = null, isRecording = false, isPaused = false;
   let finalTranscript = '', translatedTranscript = '';
   let translateTimer = null, lastTranslated = '';
-  let lastFinalIndex = -1;
 
   // Instagram WebView algıla
   const ua = navigator.userAgent || '';
@@ -224,7 +223,9 @@
   function onLangChange() {
     const v = document.getElementById('langSelect').value;
     document.getElementById('srcLangLabel').textContent = srcNames[v] || v;
-    if (isRecording || isPaused) { isPaused = false; processedResults.clear(); recognition.stop(); setTimeout(() => { initRec(); startRec(); }, 200); }
+    isPaused = false;
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    setTimeout(() => { initRec(); startRec(); }, 200);
   }
 
   function onTrLangChange() {
@@ -397,7 +398,6 @@
 
   function clearAll() {
     finalTranscript = ''; translatedTranscript = ''; lastTranslated = '';
-    lastFinalIndex = -1;
     clearTimeout(translateTimer);
     document.getElementById('output').innerHTML = '';
     document.getElementById('trOutput').innerHTML = '';
