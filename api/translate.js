@@ -9,15 +9,15 @@ module.exports = async function(req, res) {
   if (req.method !== 'POST') { return res.status(405).end(); }
 
   try {
-    const { system, messages } = req.body;
-
+    let body = req.body;
+    if (typeof body === 'string') body = JSON.parse(body);
+    const { system, messages } = body;
     const payload = JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
       system,
       messages
     });
-
     const data = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'api.anthropic.com',
@@ -35,14 +35,13 @@ module.exports = async function(req, res) {
         response.on('data', chunk => raw += chunk);
         response.on('end', () => {
           try { resolve(JSON.parse(raw)); }
-          catch(e) { reject(new Error('Parse hatası: ' + raw)); }
+          catch(e) { reject(new Error(raw.slice(0,200))); }
         });
       });
       r.on('error', reject);
       r.write(payload);
       r.end();
     });
-
     return res.status(200).json(data);
   } catch(e) {
     return res.status(500).json({ error: e.message });
