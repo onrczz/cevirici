@@ -267,7 +267,7 @@
   function togglePause() {
     if (isPaused) {
       isPaused = false;
-      processedResults.clear();
+      initRec();
       startRec();
     } else if (isRecording) {
       isPaused = true;
@@ -276,12 +276,16 @@
   }
 
   function initRec() {
+    if (recognition) {
+      try { recognition.abort(); } catch(e) {}
+    }
     recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = document.getElementById('langSelect').value;
 
     let sessionLastIndex = -1;
+    let sessionTexts = new Set();
 
     recognition.onstart = () => {
       isRecording = true;
@@ -294,14 +298,10 @@
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript.trim();
         if (e.results[i].isFinal) {
-          if (i > sessionLastIndex && t.length > 0) {
+          if (i > sessionLastIndex && t.length > 0 && !sessionTexts.has(t)) {
             sessionLastIndex = i;
-            const words = finalTranscript.trim().split(/\s+/);
-            const newWords = t.split(/\s+/);
-            const lastN = words.slice(-newWords.length).join(' ');
-            if (lastN !== newWords.join(' ')) {
-              finalTranscript += t + ' ';
-            }
+            sessionTexts.add(t);
+            finalTranscript += t + ' ';
           }
         } else {
           interim += t;
@@ -322,7 +322,7 @@
         setTimeout(() => {
           initRec();
           startRec();
-        }, 300);
+        }, 250);
       } else {
         renderFinal();
         setMicState('paused');
