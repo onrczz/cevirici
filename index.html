@@ -143,6 +143,7 @@
 <script>
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null, isRecording = false, isPaused = false, finalTranscript = '';
+  let processedResults = new Set();
 
   function setStatus(dot, text, color, msg, msgCls) {
     document.getElementById('statusDot').className = 'status-dot ' + dot;
@@ -198,7 +199,14 @@
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalTranscript += t + ' '; else interim += t;
+        if (e.results[i].isFinal) {
+          if (!processedResults.has(i)) {
+            processedResults.add(i);
+            finalTranscript += t + ' ';
+          }
+        } else {
+          interim += t;
+        }
       }
       render(interim);
     };
@@ -209,7 +217,8 @@
     r.onend = () => {
       isRecording = false;
       if (!isPaused) {
-        try { r.start(); } catch(ex) {}
+        processedResults.clear();
+        startRec();
       } else {
         renderFinal();
         setMicState('paused');
@@ -253,6 +262,7 @@
 
   function clearText() {
     finalTranscript = '';
+    processedResults.clear();
     document.getElementById('output').innerHTML = '';
     document.getElementById('placeholder').style.display = 'block';
     document.getElementById('wordCount').textContent = '0 kelime';
