@@ -119,17 +119,7 @@
       </a>
     </div>
 
-    <!-- Orijinal kutu -->
-    <div class="box-label src">
-      <div class="box-label-dot"></div>
-      <span id="srcLangLabel">İngilizce</span>
-    </div>
-    <div class="transcript-box" id="transcriptBox">
-      <div class="placeholder" id="placeholder">___ mikrofon bekleniyor ___</div>
-      <div id="output"></div>
-    </div>
-
-    <!-- Çeviri kutusu -->
+    <!-- Çeviri kutusu (Türkçe - üstte) -->
     <div class="box-label tr">
       <div class="box-label-dot"></div>
       <span id="trLangLabel">Türkçe çeviri</span>
@@ -137,6 +127,16 @@
     <div class="transcript-box tr-box" id="trBox">
       <div class="placeholder tr" id="trPlaceholder">___ çeviri bekleniyor ___</div>
       <div id="trOutput"></div>
+    </div>
+
+    <!-- Orijinal kutu (İngilizce - altta) -->
+    <div class="box-label src">
+      <div class="box-label-dot"></div>
+      <span id="srcLangLabel">İngilizce</span>
+    </div>
+    <div class="transcript-box" id="transcriptBox">
+      <div class="placeholder" id="placeholder">___ mikrofon bekleniyor ___</div>
+      <div id="output"></div>
     </div>
 
     <!-- Kontroller -->
@@ -154,19 +154,6 @@
     <!-- Dil seçiciler -->
     <div class="lang-row">
       <div class="lang-block">
-        <select class="lang-select" id="langSelect" onchange="onLangChange()">
-          <option value="en-US">English</option>
-          <option value="tr-TR">Türkçe</option>
-          <option value="de-DE">Deutsch</option>
-          <option value="fr-FR">Français</option>
-          <option value="es-ES">Español</option>
-          <option value="ar-SA">العربية</option>
-          <option value="ru-RU">Русский</option>
-          <option value="ja-JP">日本語</option>
-        </select>
-      </div>
-      <div class="lang-arrow">→</div>
-      <div class="lang-block">
         <select class="lang-select tr-sel" id="trLangSelect" onchange="onTrLangChange()">
           <option value="Türkçe">Türkçe</option>
           <option value="İngilizce">İngilizce</option>
@@ -176,6 +163,19 @@
           <option value="Arapça">Arapça</option>
           <option value="Rusça">Rusça</option>
           <option value="Japonca">Japonca</option>
+        </select>
+      </div>
+      <div class="lang-arrow">←</div>
+      <div class="lang-block">
+        <select class="lang-select" id="langSelect" onchange="onLangChange()">
+          <option value="en-US">English</option>
+          <option value="tr-TR">Türkçe</option>
+          <option value="de-DE">Deutsch</option>
+          <option value="fr-FR">Français</option>
+          <option value="es-ES">Español</option>
+          <option value="ar-SA">العربية</option>
+          <option value="ru-RU">Русский</option>
+          <option value="ja-JP">日本語</option>
         </select>
       </div>
     </div>
@@ -333,7 +333,7 @@
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': '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', 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
