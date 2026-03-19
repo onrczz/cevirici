@@ -1,418 +1,50 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Transkript — Ses → Metin</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: #000; }
-  body { font-family: 'Share Tech Mono', monospace; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+const https = require('https');
 
-  .app { background: #000; border: 1px solid #001a08; border-radius: 16px; width: 100%; max-width: 620px; padding: 24px 20px 18px; position: relative; overflow: hidden; box-shadow: 0 0 60px rgba(0,255,80,0.04); }
-  .scanline { position: absolute; top:0;left:0;right:0;bottom:0; background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,255,80,0.012) 3px, rgba(0,255,80,0.012) 4px); pointer-events: none; border-radius: 16px; }
-  .content { position: relative; z-index: 1; }
+module.exports = async function(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  .header { text-align: center; margin-bottom: 18px; }
-  .title { font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700; color: #00ff50; letter-spacing: 7px; text-transform: uppercase; text-shadow: 0 0 8px #00ff50, 0 0 24px #00cc40; }
-  .ig-note { margin-top: 10px; font-family: 'Orbitron', monospace; font-size: 8px; font-weight: 400; color: #00ff50; letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 6px #00cc40; line-height: 1.9; }
-  .ig-btn { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; text-decoration: none; font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700; color: #00ff50; letter-spacing: 4px; text-transform: uppercase; text-shadow: 0 0 8px #00ff50, 0 0 20px #00cc40; border: 1px solid #003a15; border-radius: 20px; padding: 6px 18px; transition: all 0.2s; }
-  .ig-btn:hover { border-color: #00ff50; box-shadow: 0 0 14px rgba(0,255,80,0.4); }
+  if (req.method === 'OPTIONS') { return res.status(200).end(); }
+  if (req.method !== 'POST') { return res.status(405).end(); }
 
-  /* Instagram uyarı */
-  .ig-warn { display: none; background: rgba(255,80,0,0.06); border: 1px solid #883300; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; text-align: center; }
-  .ig-warn-title { font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700; color: #ff6600; letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 6px #ff4400; margin-bottom: 6px; }
-  .ig-warn-body { font-size: 11px; color: #994400; letter-spacing: 1px; line-height: 1.9; }
+  try {
+    const { system, messages } = req.body;
 
-  /* Kutu etiketi */
-  .box-label { font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
-  .box-label.src { color: #00aa40; }
-  .box-label.tr { color: #0088ff; text-shadow: 0 0 6px #0055cc; }
-  .box-label-dot { width: 5px; height: 5px; border-radius: 50%; }
-  .box-label.src .box-label-dot { background: #00ff50; box-shadow: 0 0 4px #00ff50; }
-  .box-label.tr .box-label-dot { background: #00aaff; box-shadow: 0 0 4px #0088ff; }
-
-  /* Transkript kutuları */
-  .transcript-box { background: #000; border: 1px solid #002a10; border-radius: 6px; height: 180px; padding: 14px; overflow-y: auto; margin-bottom: 6px; }
-  .transcript-box.tr-box { border-color: #001a33; margin-bottom: 14px; }
-  .transcript-box::-webkit-scrollbar { width: 3px; }
-  .transcript-box::-webkit-scrollbar-track { background: #001108; }
-  .transcript-box::-webkit-scrollbar-thumb { background: #009933; border-radius: 2px; }
-  .tr-box::-webkit-scrollbar-thumb { background: #004499; }
-
-  .placeholder { color: #002e10; font-size: 12px; line-height: 1.8; text-align: center; margin-top: 60px; letter-spacing: 2px; }
-  .placeholder.tr { color: #001a33; }
-  .transcript-text { color: #00ff50; font-size: 13px; line-height: 1.9; letter-spacing: 1px; text-shadow: 0 0 6px #00ff50, 0 0 12px #00cc40; word-wrap: break-word; white-space: pre-wrap; }
-  .tr-text { color: #00aaff; font-size: 13px; line-height: 1.9; letter-spacing: 1px; text-shadow: 0 0 6px #0088ff; word-wrap: break-word; white-space: pre-wrap; }
-  .interim-text { color: #004d20; font-size: 13px; line-height: 1.9; letter-spacing: 1px; }
-  .cursor { display: inline-block; width: 7px; height: 13px; background: #00ff50; animation: blink 1s step-end infinite; vertical-align: text-bottom; box-shadow: 0 0 6px #00ff50; }
-  .tr-cursor { display: inline-block; width: 7px; height: 13px; background: #0088ff; animation: blink 1s step-end infinite; vertical-align: text-bottom; box-shadow: 0 0 6px #0055cc; }
-  .tr-thinking { color: #003366; font-size: 11px; letter-spacing: 2px; animation: fade 1s ease-in-out infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-  @keyframes fade { 0%,100%{opacity:0.3} 50%{opacity:1} }
-
-  /* Kontroller */
-  .controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 6px; }
-  .mic-btn { width: 62px; height: 62px; border-radius: 50%; border: 2px solid #00ff50; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 0 12px rgba(0,255,80,0.3), inset 0 0 12px rgba(0,255,80,0.04); }
-  .mic-btn:hover { box-shadow: 0 0 24px #00ff50, inset 0 0 20px rgba(0,255,80,0.1); }
-  .mic-btn.recording { border-color: #ff3300; box-shadow: 0 0 20px #ff3300, inset 0 0 20px rgba(255,50,0,0.1); animation: mpulse 1s ease-in-out infinite; }
-  .mic-btn.paused { border-color: #ffaa00; box-shadow: 0 0 14px #ffaa00; animation: none; }
-  .mic-btn:disabled { border-color: #1a1a1a; box-shadow: none; cursor: not-allowed; opacity: 0.3; animation: none; }
-  @keyframes mpulse { 0%,100%{box-shadow:0 0 20px #ff3300} 50%{box-shadow:0 0 38px #ff5500} }
-  .mic-icon { width: 24px; height: 24px; fill: #00ff50; transition: fill 0.2s; }
-  .mic-btn.recording .mic-icon { fill: #ff3300; }
-  .mic-btn.paused .mic-icon { fill: #ffaa00; }
-  .mic-btn:disabled .mic-icon { fill: #2a2a2a; }
-  .mic-label { text-align: center; font-size: 10px; letter-spacing: 2px; color: #003a15; margin-bottom: 12px; text-transform: uppercase; }
-
-  .action-btn { background: transparent; border: 1px solid #002a10; color: #004d1a; font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 2px; padding: 8px 16px; cursor: pointer; border-radius: 4px; transition: all 0.2s; text-transform: uppercase; }
-  .action-btn:hover { border-color: #00ff50; color: #00ff50; text-shadow: 0 0 6px #00ff50; }
-
-  /* Dil seçiciler */
-  .lang-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px; }
-  .lang-block { display: flex; align-items: center; gap: 6px; }
-  .lang-arrow { color: #003a15; font-size: 14px; }
-  .lang-select { background: transparent; border: 1px solid #002a10; color: #004d1a; font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 1px; padding: 6px 10px; border-radius: 4px; cursor: pointer; outline: none; transition: all 0.2s; }
-  .lang-select:hover, .lang-select:focus { border-color: #00ff50; color: #00ff50; }
-  .lang-select option { background: #000; color: #00ff50; }
-  .lang-select.tr-sel { border-color: #001a33; color: #003366; }
-  .lang-select.tr-sel:hover, .lang-select.tr-sel:focus { border-color: #0088ff; color: #00aaff; }
-  .lang-select.tr-sel option { color: #00aaff; }
-
-  /* Status */
-  .status-bar { display: flex; align-items: center; justify-content: space-between; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
-  .status-left { display: flex; align-items: center; gap: 8px; }
-  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #002a10; }
-  .status-dot.recording { background: #ff3300; box-shadow: 0 0 6px #ff3300; animation: pd 0.6s ease-in-out infinite; }
-  .status-dot.paused { background: #ffaa00; box-shadow: 0 0 6px #ffaa00; }
-  .status-dot.denied { background: #ff3300; box-shadow: 0 0 6px #ff3300; }
-  .status-dot.checking { background: #ffaa00; box-shadow: 0 0 6px #ffaa00; animation: pd 0.5s ease-in-out infinite; }
-  @keyframes pd { 0%,100%{opacity:1} 50%{opacity:0.25} }
-  .word-count { color: #003a15; font-size: 10px; letter-spacing: 1px; }
-  .msg-line { font-size: 10px; letter-spacing: 2px; text-align: center; min-height: 14px; }
-  .msg-line.ok { color: #00cc40; text-shadow: 0 0 4px #00cc40; }
-  .msg-line.err { color: #ff3300; text-shadow: 0 0 4px #ff3300; }
-  .msg-line.muted { color: #002a10; }
-
-  .dl-bar { text-align: center; margin-top: 12px; border-top: 1px solid #001a08; padding-top: 10px; }
-  .dl-btn { background: transparent; border: 1px solid #002a10; color: #003a15; font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px; padding: 7px 18px; cursor: pointer; border-radius: 4px; transition: all 0.2s; text-transform: uppercase; }
-  .dl-btn:hover { border-color: #00cc40; color: #00cc40; }
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="scanline"></div>
-  <div class="content">
-
-    <div class="ig-warn" id="igWarning">
-      <div class="ig-warn-title">⚠ instagram tarayıcısı</div>
-      <div class="ig-warn-body">mikrofon bu tarayıcıda çalışmaz.<br>sağ üstteki <span style="color:#ff6600">···</span> menüsünden <span style="color:#ff6600">harici tarayıcıda aç</span> seçeneğini kullanın.</div>
-    </div>
-
-    <div class="header">
-      <div class="title">transkript</div>
-      <div class="ig-note">projeyi geliştirmek için geri bildirimlerinizi memnuniyetle karşılıyorum.<br>i̇letişime geçmek için buraya tıklayın</div>
-      <a href="https://www.instagram.com/onrcz" target="_blank" class="ig-btn">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="6" stroke="#00ff50" stroke-width="2"/><circle cx="12" cy="12" r="4.5" stroke="#00ff50" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="#00ff50"/></svg>
-        onrcz
-      </a>
-    </div>
-
-    <!-- Konuşma kutusu (Türkçe - üstte, mikrofon buraya yazar) -->
-    <div class="box-label src">
-      <div class="box-label-dot"></div>
-      <span id="srcLangLabel">Türkçe</span>
-    </div>
-    <div class="transcript-box" id="transcriptBox">
-      <div class="placeholder" id="placeholder">___ mikrofon bekleniyor ___</div>
-      <div id="output"></div>
-    </div>
-
-    <!-- Çeviri kutusu (İngilizce - altta) -->
-    <div class="box-label tr">
-      <div class="box-label-dot"></div>
-      <span id="trLangLabel">İngilizce çeviri</span>
-    </div>
-    <div class="transcript-box tr-box" id="trBox">
-      <div class="placeholder tr" id="trPlaceholder">___ çeviri bekleniyor ___</div>
-      <div id="trOutput"></div>
-    </div>
-
-    <!-- Kontroller -->
-    <div class="controls">
-      <button class="action-btn" onclick="clearAll()">temizle</button>
-      <button class="mic-btn" id="micBtn" onclick="togglePause()" disabled>
-        <svg class="mic-icon" viewBox="0 0 24 24">
-          <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
-        </svg>
-      </button>
-      <button class="action-btn" onclick="copyText()">kopyala</button>
-    </div>
-    <div class="mic-label" id="micLabel">—</div>
-
-    <!-- Dil seçiciler + çevir butonu -->
-    <div class="lang-row">
-      <div class="lang-block">
-        <select class="lang-select" id="langSelect" onchange="onLangChange()">
-          <option value="tr-TR">Türkçe</option>
-          <option value="en-US">English</option>
-          <option value="de-DE">Deutsch</option>
-          <option value="fr-FR">Français</option>
-          <option value="es-ES">Español</option>
-          <option value="ar-SA">العربية</option>
-          <option value="ru-RU">Русский</option>
-          <option value="ja-JP">日本語</option>
-        </select>
-      </div>
-      <div class="lang-arrow">→</div>
-      <div class="lang-block">
-        <select class="lang-select tr-sel" id="trLangSelect" onchange="onTrLangChange()">
-          <option value="İngilizce">İngilizce</option>
-          <option value="Türkçe">Türkçe</option>
-          <option value="Almanca">Almanca</option>
-          <option value="Fransızca">Fransızca</option>
-          <option value="İspanyolca">İspanyolca</option>
-          <option value="Arapça">Arapça</option>
-          <option value="Rusça">Rusça</option>
-          <option value="Japonca">Japonca</option>
-        </select>
-      </div>
-    </div>
-    <div style="text-align:center;margin-bottom:12px;">
-      <button class="action-btn" id="translateBtn" onclick="manualTranslate()" style="border-color:#001a33;color:#003366;letter-spacing:3px;padding:9px 28px;" onmouseover="this.style.borderColor='#0088ff';this.style.color='#00aaff';this.style.textShadow='0 0 6px #0088ff'" onmouseout="this.style.borderColor='#001a33';this.style.color='#003366';this.style.textShadow='none'">çevir</button>
-    </div>
-
-    <div class="status-bar">
-      <div class="status-left">
-        <div class="status-dot checking" id="statusDot"></div>
-        <span id="statusText" style="color:#ffaa00">kontrol ediliyor...</span>
-      </div>
-      <div class="word-count" id="wordCount">0 kelime</div>
-    </div>
-    <div class="msg-line muted" id="msgLine"></div>
-
-    <div class="dl-bar">
-      <button class="dl-btn" onclick="downloadText()">metni .txt olarak indir</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null, isRecording = false, isPaused = false;
-  let finalTranscript = '', translatedTranscript = '';
-  let processedResults = new Set();
-  let translateTimer = null, lastTranslated = '';
-
-  // Instagram WebView algıla
-  const ua = navigator.userAgent || '';
-  if (/Instagram|FBAN|FBAV|FB_IAB/i.test(ua)) {
-    document.getElementById('igWarning').style.display = 'block';
-  }
-
-  // Dil etiketleri
-  const srcNames = { 'tr-TR':'Türkçe','en-US':'İngilizce','de-DE':'Almanca','fr-FR':'Fransızca','es-ES':'İspanyolca','ar-SA':'Arapça','ru-RU':'Rusça','ja-JP':'Japonca' };
-
-  function onLangChange() {
-    const v = document.getElementById('langSelect').value;
-    document.getElementById('srcLangLabel').textContent = srcNames[v] || v;
-    if (isRecording || isPaused) { isPaused = false; processedResults.clear(); recognition.stop(); setTimeout(() => { initRec(); startRec(); }, 200); }
-  }
-
-  function onTrLangChange() {
-    const v = document.getElementById('trLangSelect').value;
-    document.getElementById('trLangLabel').textContent = v + ' çeviri';
-  }
-
-  function setStatus(dot, text, color, msg, msgCls) {
-    document.getElementById('statusDot').className = 'status-dot ' + dot;
-    document.getElementById('statusText').textContent = text;
-    document.getElementById('statusText').style.color = color;
-    const ml = document.getElementById('msgLine');
-    ml.textContent = msg || '';
-    ml.className = 'msg-line ' + (msgCls || 'muted');
-  }
-
-  function setMicState(state) {
-    const btn = document.getElementById('micBtn');
-    const lbl = document.getElementById('micLabel');
-    btn.className = 'mic-btn ' + state;
-    if (state === 'recording') { lbl.textContent = 'duraklat'; lbl.style.color = '#ff3300'; }
-    else if (state === 'paused') { lbl.textContent = 'devam et'; lbl.style.color = '#ffaa00'; }
-    else { lbl.textContent = '—'; lbl.style.color = '#003a15'; }
-  }
-
-  async function checkPermission() {
-    if (!SR) { setStatus('denied','desteklenmiyor','#ff3300','chrome veya edge kullanın','err'); return; }
-    document.getElementById('micBtn').disabled = false;
-    initRec();
-    startRec();
-  }
-
-  function applyPerm(s) {
-    if (s === 'denied') {
-      setStatus('denied','reddedildi','#ff3300','tarayıcı ayarlarından mikrofon iznini verin','err');
-      isRecording = false;
-    }
-  }
-
-  function togglePause() {
-    if (isPaused) {
-      isPaused = false;
-      processedResults.clear();
-      startRec();
-    } else if (isRecording) {
-      isPaused = true;
-      recognition.stop();
-    }
-  }
-
-  function initRec() {
-    recognition = new SR();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = document.getElementById('langSelect').value;
-
-    recognition.onstart = () => {
-      isRecording = true;
-      setMicState('recording');
-      setStatus('recording','kayıt oluyor...','#ff3300','konuşabilirsiniz','ok');
-    };
-
-    let lastFinalIndex = -1;
-
-    recognition.onresult = (e) => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) {
-          if (i > lastFinalIndex) {
-            lastFinalIndex = i;
-            finalTranscript += t + ' ';
-          }
-        } else {
-          interim += t;
-        }
-      }
-      render(interim);
-    };
-
-    recognition.onerror = (e) => {
-      if (e.error === 'not-allowed') { applyPerm('denied'); }
-      else if (e.error === 'aborted') { }
-      else if (e.error !== 'no-speech') { setStatus('checking','hata','#ff3300','hata: '+e.error,'err'); }
-    };
-
-    recognition.onend = () => {
-      isRecording = false;
-      if (!isPaused) {
-        lastFinalIndex = -1;
-        try { recognition.start(); } catch(ex) {}
-      } else {
-        renderFinal();
-        setMicState('paused');
-        setStatus('paused','duraklatıldı','#ffaa00','devam etmek için mikrofona bas','muted');
-      }
-    };
-  }
-
-  function startRec() { try { recognition.start(); } catch(e) {} }
-
-  function manualTranslate() {
-    const text = finalTranscript.trim();
-    if (!text) return;
-    lastTranslated = '';
-    triggerTranslate(text);
-  }
-
-  async function triggerTranslate(text) {
-    lastTranslated = text;
-    const targetLang = document.getElementById('trLangSelect').value;
-    showTrThinking();
-    try {
-      const res = await fetch('/.netlify/functions/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system: `Sen bir çeviri asistanısın. Verilen metni sadece ${targetLang} diline çevir. Başka hiçbir şey yazma, sadece çeviriyi yaz.`,
-          messages: [{ role: 'user', content: text }]
-        })
-      });
-      const data = await res.json();
-      const translated = data.content && data.content[0] ? data.content[0].text : '';
-      if (translated) {
-        translatedTranscript = translated;
-        renderTr();
-      } else {
-        document.getElementById('trOutput').innerHTML = '<span style="color:#882200;font-size:10px;letter-spacing:1px;word-break:break-all;">api yanıt: ' + JSON.stringify(data).slice(0, 300) + '</span>';
-      }
-    } catch(e) {
-      document.getElementById('trOutput').innerHTML = '<span style="color:#882200;font-size:11px;letter-spacing:1px;">bağlantı hatası: ' + e.message + '</span>';
-    }
-  }
-
-  function showTrThinking() {
-    document.getElementById('trPlaceholder').style.display = 'none';
-    document.getElementById('trOutput').innerHTML = '<span class="tr-thinking">çeviriliyor...</span>';
-  }
-
-  function render(interim) {
-    document.getElementById('placeholder').style.display = 'none';
-    let h = '';
-    if (finalTranscript) h += '<span class="transcript-text">'+esc(finalTranscript)+'</span>';
-    if (interim) h += '<span class="interim-text">'+esc(interim)+'</span>';
-    h += '<span class="cursor"></span>';
-    document.getElementById('output').innerHTML = h;
-    const w = finalTranscript.trim().split(/\s+/).filter(x=>x).length;
-    document.getElementById('wordCount').textContent = w + ' kelime';
-    document.getElementById('transcriptBox').scrollTop = 9999;
-  }
-
-  function renderFinal() {
-    if (finalTranscript) {
-      document.getElementById('placeholder').style.display = 'none';
-      document.getElementById('output').innerHTML = '<span class="transcript-text">'+esc(finalTranscript)+'</span>';
-    }
-  }
-
-  function renderTr() {
-    document.getElementById('trPlaceholder').style.display = 'none';
-    document.getElementById('trOutput').innerHTML = '<span class="tr-text">'+esc(translatedTranscript)+'</span><span class="tr-cursor"></span>';
-    document.getElementById('trBox').scrollTop = 9999;
-  }
-
-  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  function clearAll() {
-    finalTranscript = ''; translatedTranscript = ''; lastTranslated = '';
-    processedResults.clear(); clearTimeout(translateTimer);
-    document.getElementById('output').innerHTML = '';
-    document.getElementById('trOutput').innerHTML = '';
-    document.getElementById('placeholder').style.display = 'block';
-    document.getElementById('trPlaceholder').style.display = 'block';
-    document.getElementById('wordCount').textContent = '0 kelime';
-  }
-
-  function copyText() {
-    const text = finalTranscript.trim() + (translatedTranscript ? '\n\n--- Çeviri ---\n' + translatedTranscript : '');
-    if (!text.trim()) return;
-    navigator.clipboard.writeText(text).then(() => {
-      setStatus('recording','kopyalandı!','#00ff50','','ok');
-      setTimeout(() => setStatus('recording','kayıt oluyor...','#ff3300','konuşabilirsiniz','ok'), 1500);
+    const payload = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system,
+      messages
     });
-  }
 
-  function downloadText() {
-    const text = finalTranscript.trim() + (translatedTranscript ? '\n\n--- Çeviri ---\n' + translatedTranscript : '');
-    if (!text.trim()) return;
-    const a = document.createElement('a');
-    a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
-    a.download = 'transkript_' + new Date().toISOString().slice(0,10) + '.txt';
-    a.click();
-  }
+    const data = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      };
+      const r = https.request(options, (response) => {
+        let raw = '';
+        response.on('data', chunk => raw += chunk);
+        response.on('end', () => {
+          try { resolve(JSON.parse(raw)); }
+          catch(e) { reject(new Error('Parse hatası: ' + raw)); }
+        });
+      });
+      r.on('error', reject);
+      r.write(payload);
+      r.end();
+    });
 
-  checkPermission();
-</script>
-</body>
-</html>
+    return res.status(200).json(data);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
