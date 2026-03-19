@@ -404,9 +404,13 @@
     document.getElementById('placeholder').style.display = 'block';
     document.getElementById('trPlaceholder').style.display = 'block';
     document.getElementById('wordCount').textContent = '0 kelime';
-    isPaused = false;
+    isPaused = true;
     if (recognition) { try { recognition.stop(); } catch(e) {} }
-    setTimeout(() => { initRec(); startRec(); }, 300);
+    setTimeout(() => {
+      isPaused = false;
+      initRec();
+      startRec();
+    }, 400);
   }
 
   function copyText() {
