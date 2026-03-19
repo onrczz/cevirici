@@ -119,24 +119,24 @@
       </a>
     </div>
 
-    <!-- Çeviri kutusu (Türkçe - üstte) -->
-    <div class="box-label tr">
-      <div class="box-label-dot"></div>
-      <span id="trLangLabel">Türkçe çeviri</span>
-    </div>
-    <div class="transcript-box tr-box" id="trBox">
-      <div class="placeholder tr" id="trPlaceholder">___ çeviri bekleniyor ___</div>
-      <div id="trOutput"></div>
-    </div>
-
-    <!-- Orijinal kutu (İngilizce - altta) -->
+    <!-- Konuşma kutusu (Türkçe - üstte, mikrofon buraya yazar) -->
     <div class="box-label src">
       <div class="box-label-dot"></div>
-      <span id="srcLangLabel">İngilizce</span>
+      <span id="srcLangLabel">Türkçe</span>
     </div>
     <div class="transcript-box" id="transcriptBox">
       <div class="placeholder" id="placeholder">___ mikrofon bekleniyor ___</div>
       <div id="output"></div>
+    </div>
+
+    <!-- Çeviri kutusu (İngilizce - altta) -->
+    <div class="box-label tr">
+      <div class="box-label-dot"></div>
+      <span id="trLangLabel">İngilizce çeviri</span>
+    </div>
+    <div class="transcript-box tr-box" id="trBox">
+      <div class="placeholder tr" id="trPlaceholder">___ çeviri bekleniyor ___</div>
+      <div id="trOutput"></div>
     </div>
 
     <!-- Kontroller -->
@@ -151,25 +151,12 @@
     </div>
     <div class="mic-label" id="micLabel">—</div>
 
-    <!-- Dil seçiciler -->
+    <!-- Dil seçiciler + çevir butonu -->
     <div class="lang-row">
       <div class="lang-block">
-        <select class="lang-select tr-sel" id="trLangSelect" onchange="onTrLangChange()">
-          <option value="Türkçe">Türkçe</option>
-          <option value="İngilizce">İngilizce</option>
-          <option value="Almanca">Almanca</option>
-          <option value="Fransızca">Fransızca</option>
-          <option value="İspanyolca">İspanyolca</option>
-          <option value="Arapça">Arapça</option>
-          <option value="Rusça">Rusça</option>
-          <option value="Japonca">Japonca</option>
-        </select>
-      </div>
-      <div class="lang-arrow">←</div>
-      <div class="lang-block">
         <select class="lang-select" id="langSelect" onchange="onLangChange()">
-          <option value="en-US">English</option>
           <option value="tr-TR">Türkçe</option>
+          <option value="en-US">English</option>
           <option value="de-DE">Deutsch</option>
           <option value="fr-FR">Français</option>
           <option value="es-ES">Español</option>
@@ -178,6 +165,22 @@
           <option value="ja-JP">日本語</option>
         </select>
       </div>
+      <div class="lang-arrow">→</div>
+      <div class="lang-block">
+        <select class="lang-select tr-sel" id="trLangSelect" onchange="onTrLangChange()">
+          <option value="İngilizce">İngilizce</option>
+          <option value="Türkçe">Türkçe</option>
+          <option value="Almanca">Almanca</option>
+          <option value="Fransızca">Fransızca</option>
+          <option value="İspanyolca">İspanyolca</option>
+          <option value="Arapça">Arapça</option>
+          <option value="Rusça">Rusça</option>
+          <option value="Japonca">Japonca</option>
+        </select>
+      </div>
+    </div>
+    <div style="text-align:center;margin-bottom:12px;">
+      <button class="action-btn" id="translateBtn" onclick="manualTranslate()" style="border-color:#001a33;color:#003366;letter-spacing:3px;padding:9px 28px;" onmouseover="this.style.borderColor='#0088ff';this.style.color='#00aaff';this.style.textShadow='0 0 6px #0088ff'" onmouseout="this.style.borderColor='#001a33';this.style.color='#003366';this.style.textShadow='none'">çevir</button>
     </div>
 
     <div class="status-bar">
@@ -209,7 +212,7 @@
   }
 
   // Dil etiketleri
-  const srcNames = { 'en-US':'İngilizce','tr-TR':'Türkçe','de-DE':'Almanca','fr-FR':'Fransızca','es-ES':'İspanyolca','ar-SA':'Arapça','ru-RU':'Rusça','ja-JP':'Japonca' };
+  const srcNames = { 'tr-TR':'Türkçe','en-US':'İngilizce','de-DE':'Almanca','fr-FR':'Fransızca','es-ES':'İspanyolca','ar-SA':'Arapça','ru-RU':'Rusça','ja-JP':'Japonca' };
 
   function onLangChange() {
     const v = document.getElementById('langSelect').value;
@@ -220,8 +223,6 @@
   function onTrLangChange() {
     const v = document.getElementById('trLangSelect').value;
     document.getElementById('trLangLabel').textContent = v + ' çeviri';
-    lastTranslated = '';
-    if (finalTranscript.trim()) triggerTranslate(finalTranscript);
   }
 
   function setStatus(dot, text, color, msg, msgCls) {
@@ -287,7 +288,6 @@
           if (!processedResults.has(i)) {
             processedResults.add(i);
             finalTranscript += t + ' ';
-            scheduleTranslate();
           }
         } else {
           interim += t;
@@ -317,13 +317,11 @@
 
   function startRec() { try { recognition.start(); } catch(e) {} }
 
-  // Çeviri — cümle bittikten 800ms sonra tetikle (çok sık API çağrısı olmasın)
-  function scheduleTranslate() {
-    clearTimeout(translateTimer);
-    translateTimer = setTimeout(() => {
-      const text = finalTranscript.trim();
-      if (text && text !== lastTranslated) triggerTranslate(text);
-    }, 800);
+  function manualTranslate() {
+    const text = finalTranscript.trim();
+    if (!text) return;
+    lastTranslated = '';
+    triggerTranslate(text);
   }
 
   async function triggerTranslate(text) {
@@ -331,12 +329,10 @@
     const targetLang = document.getElementById('trLangSelect').value;
     showTrThinking();
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/.netlify/functions/translate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': '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', 'anthropic-version': '2023-06-01' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
           system: `Sen bir çeviri asistanısın. Verilen metni sadece ${targetLang} diline çevir. Başka hiçbir şey yazma, sadece çeviriyi yaz.`,
           messages: [{ role: 'user', content: text }]
         })
