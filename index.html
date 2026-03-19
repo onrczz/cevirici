@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#00ff50">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Transkript">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>Transkript — Ses → Metin</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -202,8 +209,8 @@
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null, isRecording = false, isPaused = false;
   let finalTranscript = '', translatedTranscript = '';
-  let processedResults = new Set();
   let translateTimer = null, lastTranslated = '';
+  let lastFinalIndex = -1;
 
   // Instagram WebView algıla
   const ua = navigator.userAgent || '';
@@ -274,22 +281,27 @@
     recognition.interimResults = true;
     recognition.lang = document.getElementById('langSelect').value;
 
+    let sessionLastIndex = -1;
+
     recognition.onstart = () => {
       isRecording = true;
       setMicState('recording');
       setStatus('recording','kayıt oluyor...','#ff3300','konuşabilirsiniz','ok');
     };
 
-    let lastFinalIndex = -1;
-
     recognition.onresult = (e) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
+        const t = e.results[i][0].transcript.trim();
         if (e.results[i].isFinal) {
-          if (i > lastFinalIndex) {
-            lastFinalIndex = i;
-            finalTranscript += t + ' ';
+          if (i > sessionLastIndex && t.length > 0) {
+            sessionLastIndex = i;
+            const words = finalTranscript.trim().split(/\s+/);
+            const newWords = t.split(/\s+/);
+            const lastN = words.slice(-newWords.length).join(' ');
+            if (lastN !== newWords.join(' ')) {
+              finalTranscript += t + ' ';
+            }
           }
         } else {
           interim += t;
@@ -307,8 +319,10 @@
     recognition.onend = () => {
       isRecording = false;
       if (!isPaused) {
-        lastFinalIndex = -1;
-        try { recognition.start(); } catch(ex) {}
+        setTimeout(() => {
+          initRec();
+          startRec();
+        }, 300);
       } else {
         renderFinal();
         setMicState('paused');
@@ -331,7 +345,7 @@
     const targetLang = document.getElementById('trLangSelect').value;
     showTrThinking();
     try {
-      const res = await fetch('/.netlify/functions/translate', {
+      const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -386,12 +400,16 @@
 
   function clearAll() {
     finalTranscript = ''; translatedTranscript = ''; lastTranslated = '';
-    processedResults.clear(); clearTimeout(translateTimer);
+    lastFinalIndex = -1;
+    clearTimeout(translateTimer);
     document.getElementById('output').innerHTML = '';
     document.getElementById('trOutput').innerHTML = '';
     document.getElementById('placeholder').style.display = 'block';
     document.getElementById('trPlaceholder').style.display = 'block';
     document.getElementById('wordCount').textContent = '0 kelime';
+    isPaused = false;
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    setTimeout(() => { initRec(); startRec(); }, 300);
   }
 
   function copyText() {
@@ -413,6 +431,10 @@
   }
 
   checkPermission();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
 </script>
 </body>
 </html>
